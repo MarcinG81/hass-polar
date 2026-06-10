@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 import logging
 from typing import Any
@@ -36,6 +36,14 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _format_hours_minutes(seconds: Any) -> str | None:
+    """Format a duration in seconds as a human readable "Xh Ym" string."""
+    if seconds is None:
+        return None
+    minutes = round(seconds / 60)
+    return f"{minutes // 60}h {minutes % 60:02d}m"
+
+
 @dataclass(frozen=True, kw_only=True)
 class PolarEntityDescription(SensorEntityDescription):
     """Provide a description of a Polar sensor."""
@@ -43,6 +51,8 @@ class PolarEntityDescription(SensorEntityDescription):
     key_category: str
     unique_id: str
     attributes_keys: list[str]
+    value_fn: Callable[[Any], Any] | None = None
+    attributes_fn: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None
 
 
 SENSOR_DESCRIPTIONS = (
@@ -225,30 +235,42 @@ SENSOR_DESCRIPTIONS = (
         key="deep_sleep",
         name="Deep sleep",
         unique_id="deep_sleep",
-        native_unit_of_measurement=UnitOfTime.SECONDS,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
         device_class=SensorDeviceClass.DURATION,
         icon="mdi:sleep",
         attributes_keys=["date"],
+        value_fn=lambda seconds: round(seconds / 60),
+        attributes_fn=lambda data: {
+            "duration": _format_hours_minutes(data.get("deep_sleep"))
+        },
     ),
     PolarEntityDescription(
         key_category=ATTR_LAST_SLEEP,
         key="light_sleep",
         name="Light sleep",
         unique_id="light_sleep",
-        native_unit_of_measurement=UnitOfTime.SECONDS,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
         device_class=SensorDeviceClass.DURATION,
         icon="mdi:sleep",
         attributes_keys=["date"],
+        value_fn=lambda seconds: round(seconds / 60),
+        attributes_fn=lambda data: {
+            "duration": _format_hours_minutes(data.get("light_sleep"))
+        },
     ),
     PolarEntityDescription(
         key_category=ATTR_LAST_SLEEP,
         key="rem_sleep",
         name="REM sleep",
         unique_id="rem_sleep",
-        native_unit_of_measurement=UnitOfTime.SECONDS,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
         device_class=SensorDeviceClass.DURATION,
         icon="mdi:sleep",
         attributes_keys=["date"],
+        value_fn=lambda seconds: round(seconds / 60),
+        attributes_fn=lambda data: {
+            "duration": _format_hours_minutes(data.get("rem_sleep"))
+        },
     ),
 )
 
@@ -309,18 +331,18 @@ class PolarSensor(CoordinatorEntity[PolarCoordinator], SensorEntity):
             ]
         ) is None:
             return None
+        if self.entity_description.value_fn is not None:
+            return self.entity_description.value_fn(value)
         return value
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
         """Return attributes."""
-        if self.entity_description.attributes_keys:
-            attributes = {}
-            for key in self.entity_description.attributes_keys:
-                if key in self.coordinator.data[self.entity_description.key_category]:
-                    value = self.coordinator.data[self.entity_description.key_category][
-                        key
-                    ]
-                    attributes.update({key: value})
-            return attributes
-        return None
+        category_data = self.coordinator.data[self.entity_description.key_category]
+        attributes: dict[str, Any] = {}
+        for key in self.entity_description.attributes_keys:
+            if key in category_data:
+                attributes[key] = category_data[key]
+        if self.entity_description.attributes_fn is not None:
+            attributes.update(self.entity_description.attributes_fn(category_data))
+        return attributes or None
