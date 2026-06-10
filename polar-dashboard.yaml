@@ -4,7 +4,8 @@
 #  WYMAGA (HACS): Lovelace Mushroom.  Historia = wbudowana karta statistics-graph.
 #
 #  Encje są pod prefiksem urządzenia: sensor.polar_loop_*  (device "Polar Loop").
-#  Statystyki historyczne to id polar:*  (bez zmian).
+#  Historia (backfill) jest wpięta w SAME sensory – statistics-graph używa
+#  zwykłych encji sensor.polar_loop_*, a nie osobnych id.
 #
 #  JAK ZAKTUALIZOWAĆ DASHBOARD (zmiany w repo NIE wchodzą same!):
 #  Dashboard Polar → ołówek → ⋮ → "Edytor surowej konfiguracji" →
@@ -149,18 +150,18 @@ views:
     icon: mdi:sleep
     cards:
       - type: statistics-graph
-        title: Fazy snu – 28 dni (minuty)
+        title: Fazy snu – 28 dni
         chart_type: bar
         period: day
         days_to_show: 30
         stat_types:
           - mean
         entities:
-          - entity: polar:deep_sleep
+          - entity: sensor.polar_loop_deep_sleep
             name: Głęboki
-          - entity: polar:light_sleep
+          - entity: sensor.polar_loop_light_sleep
             name: Lekki
-          - entity: polar:rem_sleep
+          - entity: sensor.polar_loop_rem_sleep
             name: REM
 
       - type: statistics-graph
@@ -171,7 +172,7 @@ views:
         stat_types:
           - mean
         entities:
-          - entity: polar:sleep_score
+          - entity: sensor.polar_loop_last_sleep_score
             name: Sleep score
 
       - type: statistics-graph
@@ -182,9 +183,9 @@ views:
         stat_types:
           - mean
         entities:
-          - entity: polar:heart_rate_variability
+          - entity: sensor.polar_loop_heart_rate_variability
             name: HRV
-          - entity: polar:breathing_rate
+          - entity: sensor.polar_loop_breathing_rate
             name: Oddech
 
   # ==========================================================================
@@ -202,7 +203,7 @@ views:
         stat_types:
           - mean
         entities:
-          - entity: polar:cardio_load
+          - entity: sensor.polar_loop_cardio_load
             name: Cardio load
 
       - type: statistics-graph
@@ -215,7 +216,7 @@ views:
           - min
           - max
         entities:
-          - entity: polar:heart_rate
+          - entity: sensor.polar_loop_heart_rate
             name: Tętno
 
       - type: history-graph

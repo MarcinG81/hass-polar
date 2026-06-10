@@ -16,10 +16,11 @@ import logging
 from typing import Any
 
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
-from homeassistant.components.recorder.statistics import async_add_external_statistics
+from homeassistant.components.recorder.statistics import async_import_statistics
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ACCESS_TOKEN
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 import homeassistant.util.dt as dt_util
 
 from .const import DOMAIN
@@ -64,14 +65,14 @@ def _seconds_to_minutes(seconds: Any) -> float | None:
     return round(seconds / 60)
 
 
-def _metadata(suffix: str, name: str, unit: str | None) -> StatisticMetaData:
-    """Build external statistic metadata for a Polar metric."""
+def _metadata(statistic_id: str, unit: str | None) -> StatisticMetaData:
+    """Build statistic metadata targeting an existing sensor entity."""
     return StatisticMetaData(
         **_MEAN_META,
         has_sum=False,
-        name=f"Polar {name}",
-        source=DOMAIN,
-        statistic_id=f"{DOMAIN}:{suffix}",
+        name=None,
+        source="recorder",
+        statistic_id=statistic_id,
         unit_of_measurement=unit,
         unit_class=None,
     )
@@ -132,42 +133,64 @@ def _heart_rate_stats(
 async def async_import_history(
     hass: HomeAssistant, coordinator: PolarCoordinator, entry: ConfigEntry
 ) -> None:
-    """Fetch the available Polar history and import it as statistics."""
+    """Fetch the available Polar history and import it into the sensors.
+
+    Statistics are imported against each sensor's own ``entity_id`` (resolved
+    from the entity registry via the sensor's unique_id), so the backfilled
+    history shows up directly on the entity (its statistics graph), including
+    data from before the integration was installed.
+    """
     token = entry.data[CONF_ACCESS_TOKEN]
     accesslink = coordinator.accesslink
+    ent_reg = er.async_get(hass)
+
+    def _entity_id(unique_suffix: str) -> str | None:
+        """Resolve a sensor entity_id from its unique_id suffix."""
+        return ent_reg.async_get_entity_id(
+            "sensor", DOMAIN, f"{entry.entry_id}_{unique_suffix}"
+        )
 
     # Nightly/daily metrics each come from a single "last 28 days" list call.
     sleep = await hass.async_add_executor_job(accesslink.get_sleep, token)
     recharge = await hass.async_add_executor_job(accesslink.get_recharge, token)
     cardio = await hass.async_add_executor_job(accesslink.get_cardio_load, token)
 
-    metrics: list[tuple[StatisticMetaData, list[StatisticData]]] = [
+    # (sensor unique_id suffix, native unit, statistics) - units MUST match the
+    # sensor's native_unit_of_measurement or Home Assistant rejects the import.
+    plans: list[tuple[str, str | None, list[StatisticData]]] = [
         (
-            _metadata("deep_sleep", "deep sleep", "min"),
+            "deep_sleep",
+            "min",
             _nightly_stats(sleep, lambda r: _seconds_to_minutes(r.get("deep_sleep"))),
         ),
         (
-            _metadata("light_sleep", "light sleep", "min"),
+            "light_sleep",
+            "min",
             _nightly_stats(sleep, lambda r: _seconds_to_minutes(r.get("light_sleep"))),
         ),
         (
-            _metadata("rem_sleep", "REM sleep", "min"),
+            "rem_sleep",
+            "min",
             _nightly_stats(sleep, lambda r: _seconds_to_minutes(r.get("rem_sleep"))),
         ),
         (
-            _metadata("sleep_score", "sleep score", "score"),
+            "last_sleep",
+            "score",
             _nightly_stats(sleep, lambda r: r.get("sleep_score")),
         ),
         (
-            _metadata("heart_rate_variability", "heart rate variability", "ms"),
+            "heart_rate_variability",
+            "ms",
             _nightly_stats(recharge, lambda r: r.get("heart_rate_variability_avg")),
         ),
         (
-            _metadata("breathing_rate", "breathing rate", "bpm"),
+            "breathing_rate",
+            "bpm",
             _nightly_stats(recharge, lambda r: r.get("breathing_rate_avg")),
         ),
         (
-            _metadata("cardio_load", "cardio load", None),
+            "cardio_load",
+            None,
             _nightly_stats(cardio, lambda r: r.get("cardio_load")),
         ),
     ]
@@ -182,21 +205,26 @@ async def async_import_history(
         )
         if samples:
             samples_by_day.append((day, samples))
-    metrics.append(
-        (_metadata("heart_rate", "heart rate", "bpm"), _heart_rate_stats(samples_by_day))
-    )
+    plans.append(("continuous_heart_rate", "bpm", _heart_rate_stats(samples_by_day)))
 
     imported_points = 0
     imported_metrics = 0
-    for metadata, statistics in metrics:
+    for unique_suffix, unit, statistics in plans:
         if not statistics:
             continue
-        async_add_external_statistics(hass, metadata, statistics)
+        entity_id = _entity_id(unique_suffix)
+        if entity_id is None:
+            _LOGGER.debug(
+                "Polar: sensor for '%s' not registered yet, skipping its backfill",
+                unique_suffix,
+            )
+            continue
+        async_import_statistics(hass, _metadata(entity_id, unit), statistics)
         imported_points += len(statistics)
         imported_metrics += 1
 
     _LOGGER.info(
-        "Polar: imported %s historical statistics points across %s metrics",
+        "Polar: imported %s historical statistics points across %s sensors",
         imported_points,
         imported_metrics,
     )
