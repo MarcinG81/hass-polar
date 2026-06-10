@@ -73,6 +73,7 @@ def _metadata(suffix: str, name: str, unit: str | None) -> StatisticMetaData:
         source=DOMAIN,
         statistic_id=f"{DOMAIN}:{suffix}",
         unit_of_measurement=unit,
+        unit_class=None,
     )
 
 
