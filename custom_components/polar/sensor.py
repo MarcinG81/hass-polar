@@ -14,6 +14,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -21,6 +22,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import PolarCoordinator
 from .const import (
+    ATTR_CONTINUOUS_HEART_RATE,
+    ATTR_LAST_CARDIO_LOAD,
     ATTR_LAST_DAILY,
     ATTR_LAST_EXERCISE,
     ATTR_LAST_RECHARGE,
@@ -101,6 +104,26 @@ SENSOR_DESCRIPTIONS = (
             "device",
         ],
     ),
+    PolarEntityDescription(
+        key_category=ATTR_LAST_EXERCISE,
+        key="heart_rate_average",
+        name="Last exercise heart rate average",
+        unique_id="last_exercise_heart_rate_average",
+        native_unit_of_measurement="bpm",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:heart-pulse",
+        attributes_keys=["start_time", "sport"],
+    ),
+    PolarEntityDescription(
+        key_category=ATTR_LAST_EXERCISE,
+        key="heart_rate_maximum",
+        name="Last exercise heart rate maximum",
+        unique_id="last_exercise_heart_rate_maximum",
+        native_unit_of_measurement="bpm",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:heart-pulse",
+        attributes_keys=["start_time", "sport"],
+    ),
     # sleep
     PolarEntityDescription(
         key_category=ATTR_LAST_SLEEP,
@@ -148,6 +171,84 @@ SENSOR_DESCRIPTIONS = (
             "ans_charge",
             "ans_charge_status",
         ],
+    ),
+    PolarEntityDescription(
+        key_category=ATTR_LAST_RECHARGE,
+        key="heart_rate_variability_avg",
+        name="Heart rate variability",
+        unique_id="heart_rate_variability",
+        native_unit_of_measurement="ms",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:heart-pulse",
+        attributes_keys=["date"],
+    ),
+    PolarEntityDescription(
+        key_category=ATTR_LAST_RECHARGE,
+        key="breathing_rate_avg",
+        name="Breathing rate",
+        unique_id="breathing_rate",
+        native_unit_of_measurement="bpm",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:lungs",
+        attributes_keys=["date"],
+    ),
+    # continuous heart rate
+    PolarEntityDescription(
+        key_category=ATTR_CONTINUOUS_HEART_RATE,
+        key="latest",
+        name="Heart rate",
+        unique_id="continuous_heart_rate",
+        native_unit_of_measurement="bpm",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:heart-pulse",
+        attributes_keys=["date", "min", "max", "average", "samples_count"],
+    ),
+    # cardio load (training load)
+    PolarEntityDescription(
+        key_category=ATTR_LAST_CARDIO_LOAD,
+        key="cardio_load",
+        name="Cardio load",
+        unique_id="cardio_load",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:weight-lifter",
+        attributes_keys=[
+            "date",
+            "strain",
+            "tolerance",
+            "cardio_load_ratio",
+            "cardio_load_status",
+        ],
+    ),
+    # sleep stages
+    PolarEntityDescription(
+        key_category=ATTR_LAST_SLEEP,
+        key="deep_sleep",
+        name="Deep sleep",
+        unique_id="deep_sleep",
+        native_unit_of_measurement=UnitOfTime.SECONDS,
+        device_class=SensorDeviceClass.DURATION,
+        icon="mdi:sleep",
+        attributes_keys=["date"],
+    ),
+    PolarEntityDescription(
+        key_category=ATTR_LAST_SLEEP,
+        key="light_sleep",
+        name="Light sleep",
+        unique_id="light_sleep",
+        native_unit_of_measurement=UnitOfTime.SECONDS,
+        device_class=SensorDeviceClass.DURATION,
+        icon="mdi:sleep",
+        attributes_keys=["date"],
+    ),
+    PolarEntityDescription(
+        key_category=ATTR_LAST_SLEEP,
+        key="rem_sleep",
+        name="REM sleep",
+        unique_id="rem_sleep",
+        native_unit_of_measurement=UnitOfTime.SECONDS,
+        device_class=SensorDeviceClass.DURATION,
+        icon="mdi:sleep",
+        attributes_keys=["date"],
     ),
 )
 
