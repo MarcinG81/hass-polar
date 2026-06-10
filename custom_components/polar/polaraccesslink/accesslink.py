@@ -135,6 +135,29 @@ class AccessLink:
                 }
         return {}
 
+    def get_continuous_heart_rate_samples(self, access_token, day):
+        """Return raw continuous heart rate samples for an ISO date.
+
+        Used for historical statistics import. Returns the list of
+        ``{"heart_rate", "sample_time"}`` samples, or an empty list when there
+        is no data for the day (or the device does not support it).
+        """
+        try:
+            data = self.oauth.get(
+                endpoint=f"/users/continuous-heart-rate/{day}",
+                access_token=access_token,
+            )
+        except HTTPError as err:
+            status = getattr(err.response, "status_code", None)
+            if status != 404:
+                _LOGGER.warning(
+                    "Unable to get continuous heart rate for %s (HTTP %s)",
+                    day,
+                    status,
+                )
+            return []
+        return data.get("heart_rate_samples") or []
+
     def get_cardio_load(self, access_token):
         """Get cardio load (training load) entries for the last 28 days.
 
