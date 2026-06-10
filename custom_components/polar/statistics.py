@@ -27,6 +27,15 @@ from .coordinator import PolarCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
+# How to declare a "mean" statistic. Newer Home Assistant wants ``mean_type``;
+# fall back to the legacy ``has_mean`` boolean on older cores.
+try:
+    from homeassistant.components.recorder.models import StatisticMeanType
+
+    _MEAN_META: dict = {"mean_type": StatisticMeanType.ARITHMETIC}
+except ImportError:  # pragma: no cover - older Home Assistant
+    _MEAN_META = {"has_mean": True}
+
 # Continuous heart rate is fetched one API call per day, so keep the dense
 # backfill window modest to stay friendly with Polar rate limits.
 CHR_BACKFILL_DAYS = 7
@@ -58,7 +67,7 @@ def _seconds_to_minutes(seconds: Any) -> float | None:
 def _metadata(suffix: str, name: str, unit: str | None) -> StatisticMetaData:
     """Build external statistic metadata for a Polar metric."""
     return StatisticMetaData(
-        has_mean=True,
+        **_MEAN_META,
         has_sum=False,
         name=f"Polar {name}",
         source=DOMAIN,

@@ -132,9 +132,11 @@ views:
             icon: mdi:run-fast
 
           - type: custom:mushroom-template-card
-            primary: "{{ state_attr('sensor.last_exercise','sport') | default('Trening') }}"
+            primary: "{{ state_attr('sensor.last_exercise','sport') | default('Trening', true) }}"
             secondary: >-
-              {{ as_timestamp(states('sensor.last_exercise')) | timestamp_custom('%d.%m %H:%M', true) }}
+              {% set t = states('sensor.last_exercise') %}
+              {% if t in ['unknown', 'unavailable', 'none', '', None] %}—
+              {% else %}{{ as_timestamp(t) | timestamp_custom('%d.%m %H:%M', true) }}{% endif %}
             icon: mdi:run
             icon_color: deep-orange
 
