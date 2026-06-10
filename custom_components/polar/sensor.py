@@ -104,6 +104,26 @@ SENSOR_DESCRIPTIONS = (
             "device",
         ],
     ),
+    PolarEntityDescription(
+        key_category=ATTR_LAST_EXERCISE,
+        key="heart_rate_average",
+        name="Last exercise heart rate average",
+        unique_id="last_exercise_heart_rate_average",
+        native_unit_of_measurement="bpm",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:heart-pulse",
+        attributes_keys=["start_time", "sport"],
+    ),
+    PolarEntityDescription(
+        key_category=ATTR_LAST_EXERCISE,
+        key="heart_rate_maximum",
+        name="Last exercise heart rate maximum",
+        unique_id="last_exercise_heart_rate_maximum",
+        native_unit_of_measurement="bpm",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:heart-pulse",
+        attributes_keys=["start_time", "sport"],
+    ),
     # sleep
     PolarEntityDescription(
         key_category=ATTR_LAST_SLEEP,

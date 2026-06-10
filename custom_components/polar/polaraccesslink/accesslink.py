@@ -62,6 +62,11 @@ class AccessLink:
         exercises = self.oauth.get(endpoint="/exercises", access_token=access_token)
         for exercise in exercises:
             exercise["duration"] = parse_date(exercise["duration"])
+            # Flatten the nested heart-rate statistics so they can be exposed
+            # as dedicated sensors (the API returns {"average": .., "maximum": ..}).
+            heart_rate = exercise.get("heart_rate") or exercise.get("heart-rate") or {}
+            exercise["heart_rate_average"] = heart_rate.get("average")
+            exercise["heart_rate_maximum"] = heart_rate.get("maximum")
         return sorted(
             exercises,
             key=lambda t: datetime.strptime(t["start_time"], "%Y-%m-%dT%H:%M:%S"),
