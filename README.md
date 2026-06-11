@@ -56,6 +56,15 @@ Because the zone bounds are pulled from the API and exposed as attributes, chart
 can draw zone bands without hard-coding any numbers — it works for any user (see
 the heart rate views in the dashboard).
 
+## Workouts (calendar)
+
+Training sessions are exposed as a **calendar** (`calendar.<device>_exercises`):
+each workout is a calendar event with the session details (sport, distance,
+duration, average/maximum heart rate, training load, calories) in the event
+description. This keeps every workout — including several on the same day — with
+its full attributes and recent history, unlike a single "last exercise" value.
+Add it with the built-in **Calendar** card.
+
 ## Installation
 
 ### HACS
