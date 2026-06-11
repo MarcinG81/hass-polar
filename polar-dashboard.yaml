@@ -1,24 +1,30 @@
 # ============================================================================
-#  Polar – dashboard dla trenującego + tracking snu  (Mushroom + statistics-graph)
+#  Polar – dashboard for training + sleep tracking  (Mushroom + statistics-graph)
 # ============================================================================
-#  WYMAGA (HACS): Lovelace Mushroom.  Historia = wbudowana karta statistics-graph.
+#  REQUIRES (HACS): Lovelace Mushroom.  History uses the built-in
+#  statistics-graph card (no ApexCharts needed).
 #
-#  Encje są pod prefiksem urządzenia: sensor.polar_loop_*  (device "Polar Loop").
-#  Historia (backfill) jest wpięta w SAME sensory – statistics-graph używa
-#  zwykłych encji sensor.polar_loop_*, a nie osobnych id.
+#  ENTITY IDS: the Polar sensors are prefixed with your device name. For a
+#  device called "Polar Loop" they look like sensor.polar_loop_deep_sleep.
+#  If yours differ, in the raw editor find-replace "sensor.polar_loop_" with
+#  your own prefix (check Developer Tools -> States).
 #
-#  JAK ZAKTUALIZOWAĆ DASHBOARD (zmiany w repo NIE wchodzą same!):
-#  Dashboard Polar → ołówek → ⋮ → "Edytor surowej konfiguracji" →
-#  zaznacz wszystko, skasuj, wklej całość tego pliku → Zapisz → Cmd/Ctrl+Shift+R.
+#  The backfilled history is attached to the sensors themselves, so the
+#  statistics-graph cards simply chart the sensor.polar_loop_* entities.
+#
+#  HOW TO ADD/UPDATE (repo changes do NOT auto-apply to your dashboard):
+#  Your Polar dashboard -> edit (pencil) -> top-right menu -> "Raw
+#  configuration editor" -> select all, delete, paste this file -> Save ->
+#  hard refresh the browser (Cmd/Ctrl+Shift+R).
 # ============================================================================
 
 title: Polar
 views:
   # ==========================================================================
-  #  WIDOK 1 – DZIŚ  (Mushroom, dane live)
+  #  VIEW 1 – TODAY  (Mushroom, live data)
   # ==========================================================================
-  - title: Dziś
-    path: dzis
+  - title: Today
+    path: today
     icon: mdi:heart-pulse
     cards:
       - type: custom:mushroom-chips-card
@@ -42,14 +48,14 @@ views:
             icon_color: green
 
       - type: custom:mushroom-title-card
-        title: Teraz
+        title: Now
 
       - type: grid
         columns: 2
         square: false
         cards:
           - type: custom:mushroom-template-card
-            primary: Tętno
+            primary: Heart rate
             secondary: "{{ states('sensor.polar_loop_heart_rate') }} bpm"
             icon: mdi:heart-pulse
             icon_color: >-
@@ -61,18 +67,18 @@ views:
             icon: mdi:sine-wave
             icon_color: teal
           - type: custom:mushroom-template-card
-            primary: Oddech
+            primary: Breathing
             secondary: "{{ states('sensor.polar_loop_breathing_rate') }} /min"
             icon: mdi:lungs
             icon_color: light-blue
           - type: custom:mushroom-template-card
-            primary: Waga
+            primary: Weight
             secondary: "{{ states('sensor.polar_loop_weight') }} kg"
             icon: mdi:scale-bathroom
             icon_color: blue-grey
 
       - type: custom:mushroom-title-card
-        title: Ostatnia noc
+        title: Last night
 
       - type: custom:mushroom-template-card
         primary: Sleep score
@@ -87,12 +93,12 @@ views:
         square: false
         cards:
           - type: custom:mushroom-template-card
-            primary: Głęboki
+            primary: Deep
             secondary: "{{ state_attr('sensor.polar_loop_deep_sleep','duration') | default('—', true) }}"
             icon: mdi:sleep
             icon_color: indigo
           - type: custom:mushroom-template-card
-            primary: Lekki
+            primary: Light
             secondary: "{{ state_attr('sensor.polar_loop_light_sleep','duration') | default('—', true) }}"
             icon: mdi:power-sleep
             icon_color: blue
@@ -111,13 +117,13 @@ views:
           {% if v >= 5 %}green{% elif v >= 3 %}orange{% else %}red{% endif %}
 
       - type: custom:mushroom-title-card
-        title: Ostatni trening
+        title: Last workout
 
       - type: custom:mushroom-template-card
-        primary: "{{ state_attr('sensor.polar_loop_last_exercise','sport') | default('Trening', true) }}"
+        primary: "{{ state_attr('sensor.polar_loop_last_exercise','sport') | default('Workout', true) }}"
         secondary: >-
           {% set t = states('sensor.polar_loop_last_exercise') %}
-          {% if t in ['unknown','unavailable','none','',None] %}brak danych
+          {% if t in ['unknown','unavailable','none','',None] %}no data
           {% else %}{{ as_timestamp(t, 0) | timestamp_custom('%d.%m %H:%M', true) }}{% endif %}
         icon: mdi:run
         icon_color: deep-orange
@@ -127,7 +133,7 @@ views:
         square: false
         cards:
           - type: custom:mushroom-template-card
-            primary: HR śr.
+            primary: HR avg
             secondary: "{{ states('sensor.polar_loop_last_exercise_heart_rate_average') }} bpm"
             icon: mdi:heart-pulse
             icon_color: orange
@@ -143,14 +149,14 @@ views:
             icon_color: amber
 
   # ==========================================================================
-  #  WIDOK 2 – SEN  (historia / backfill, statistics-graph)
+  #  VIEW 2 – SLEEP  (history / backfill, statistics-graph)
   # ==========================================================================
-  - title: Sen
-    path: sen
+  - title: Sleep
+    path: sleep
     icon: mdi:sleep
     cards:
       - type: statistics-graph
-        title: Fazy snu – 28 dni
+        title: Sleep stages – last 28 days
         chart_type: bar
         period: day
         days_to_show: 30
@@ -158,14 +164,14 @@ views:
           - mean
         entities:
           - entity: sensor.polar_loop_deep_sleep
-            name: Głęboki
+            name: Deep
           - entity: sensor.polar_loop_light_sleep
-            name: Lekki
+            name: Light
           - entity: sensor.polar_loop_rem_sleep
             name: REM
 
       - type: statistics-graph
-        title: Sleep score – 28 dni
+        title: Sleep score – last 28 days
         chart_type: line
         period: day
         days_to_show: 30
@@ -176,7 +182,7 @@ views:
             name: Sleep score
 
       - type: statistics-graph
-        title: HRV i oddech (noc) – 28 dni
+        title: HRV and breathing (night) – last 28 days
         chart_type: line
         period: day
         days_to_show: 30
@@ -186,17 +192,17 @@ views:
           - entity: sensor.polar_loop_heart_rate_variability
             name: HRV
           - entity: sensor.polar_loop_breathing_rate
-            name: Oddech
+            name: Breathing
 
   # ==========================================================================
-  #  WIDOK 3 – TRENING
+  #  VIEW 3 – TRAINING
   # ==========================================================================
-  - title: Trening
-    path: trening
+  - title: Training
+    path: training
     icon: mdi:run-fast
     cards:
       - type: statistics-graph
-        title: Cardio load – 28 dni
+        title: Cardio load – last 28 days
         chart_type: bar
         period: day
         days_to_show: 30
@@ -207,7 +213,7 @@ views:
             name: Cardio load
 
       - type: statistics-graph
-        title: Tętno (continuous) – 7 dni, godzinowo
+        title: Heart rate (continuous) – last 7 days, hourly
         chart_type: line
         period: hour
         days_to_show: 7
@@ -217,20 +223,20 @@ views:
           - max
         entities:
           - entity: sensor.polar_loop_heart_rate
-            name: Tętno
+            name: Heart rate
 
       - type: history-graph
-        title: Tętno dziś (live)
+        title: Heart rate today (live)
         hours_to_show: 24
         entities:
           - entity: sensor.polar_loop_heart_rate
-            name: Tętno
+            name: Heart rate
 
       - type: glance
-        title: Ostatni trening – tętno
+        title: Last workout – heart rate
         columns: 2
         entities:
           - entity: sensor.polar_loop_last_exercise_heart_rate_average
-            name: Średnie
+            name: Average
           - entity: sensor.polar_loop_last_exercise_heart_rate_maximum
-            name: Maks.
+            name: Maximum
