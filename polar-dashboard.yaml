@@ -1,9 +1,11 @@
 # ============================================================================
 #  Polar – history dashboard for training + sleep tracking
 # ============================================================================
-#  This integration is history-only: Polar data is published as long-term
-#  statistics (polar:*), not live sensors. The dashboard therefore uses the
-#  built-in statistics-graph card (no extra HACS cards required).
+#  Polar data is published as long-term statistics (polar:*). Most views use the
+#  built-in statistics-graph card. The heart rate "zone" cards additionally use
+#  the ApexCharts Card (HACS) and read the zone bounds from the
+#  sensor.polar_loop_max_heart_rate attributes (pulled from the Polar API, so
+#  they work for any user without hard-coded numbers).
 #
 #  HOW TO ADD/UPDATE (repo changes do NOT auto-apply to your dashboard):
 #  New dashboard -> edit (pencil) -> top-right menu -> "Raw configuration
@@ -100,15 +102,156 @@ views:
           - entity: polar:heart_rate
             name: Heart rate
 
-      - type: statistics-graph
-        title: Heart rate – last 7 days (detail)
-        chart_type: line
-        period: hour
-        days_to_show: 7
-        stat_types:
-          - mean
-          - min
-          - max
-        entities:
+      # Heart rate with training zone bands (requires ApexCharts Card).
+      # Zone bounds are read from the Max heart rate sensor's attributes, so
+      # they work for any user without hard-coding numbers. If your entity has
+      # a different prefix, adjust sensor.polar_loop_max_heart_rate below.
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Heart rate – % HRmax zones (48h)
+        graph_span: 48h
+        apex_config:
+          chart:
+            height: 320
+          legend:
+            show: false
+        series:
           - entity: polar:heart_rate
-            name: Heart rate
+            name: HR
+            type: line
+            color: '#212121'
+            stroke_width: 2
+            statistics:
+              type: mean
+              period: hour
+          - entity: sensor.polar_loop_max_heart_rate
+            name: Z1
+            type: line
+            color: '#9e9e9e'
+            stroke_width: 1
+            show:
+              legend_value: false
+            data_generator: |
+              const z = entity.attributes.zones_percent_max;
+              if (!z) return [];
+              return [[start.getTime(), z[1]], [end.getTime(), z[1]]];
+          - entity: sensor.polar_loop_max_heart_rate
+            name: Z2
+            type: line
+            color: '#42a5f5'
+            stroke_width: 1
+            show:
+              legend_value: false
+            data_generator: |
+              const z = entity.attributes.zones_percent_max;
+              if (!z) return [];
+              return [[start.getTime(), z[2]], [end.getTime(), z[2]]];
+          - entity: sensor.polar_loop_max_heart_rate
+            name: Z3
+            type: line
+            color: '#66bb6a'
+            stroke_width: 1
+            show:
+              legend_value: false
+            data_generator: |
+              const z = entity.attributes.zones_percent_max;
+              if (!z) return [];
+              return [[start.getTime(), z[3]], [end.getTime(), z[3]]];
+          - entity: sensor.polar_loop_max_heart_rate
+            name: Z4
+            type: line
+            color: '#ffa726'
+            stroke_width: 1
+            show:
+              legend_value: false
+            data_generator: |
+              const z = entity.attributes.zones_percent_max;
+              if (!z) return [];
+              return [[start.getTime(), z[4]], [end.getTime(), z[4]]];
+          - entity: sensor.polar_loop_max_heart_rate
+            name: Z5
+            type: line
+            color: '#ef5350'
+            stroke_width: 1
+            show:
+              legend_value: false
+            data_generator: |
+              const z = entity.attributes.zones_percent_max;
+              if (!z) return [];
+              return [[start.getTime(), z[5]], [end.getTime(), z[5]]];
+
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Heart rate – Karvonen (%HRR) zones (48h)
+        graph_span: 48h
+        apex_config:
+          chart:
+            height: 320
+          legend:
+            show: false
+        series:
+          - entity: polar:heart_rate
+            name: HR
+            type: line
+            color: '#212121'
+            stroke_width: 2
+            statistics:
+              type: mean
+              period: hour
+          - entity: sensor.polar_loop_max_heart_rate
+            name: Z1
+            type: line
+            color: '#9e9e9e'
+            stroke_width: 1
+            show:
+              legend_value: false
+            data_generator: |
+              const z = entity.attributes.zones_karvonen;
+              if (!z) return [];
+              return [[start.getTime(), z[1]], [end.getTime(), z[1]]];
+          - entity: sensor.polar_loop_max_heart_rate
+            name: Z2
+            type: line
+            color: '#42a5f5'
+            stroke_width: 1
+            show:
+              legend_value: false
+            data_generator: |
+              const z = entity.attributes.zones_karvonen;
+              if (!z) return [];
+              return [[start.getTime(), z[2]], [end.getTime(), z[2]]];
+          - entity: sensor.polar_loop_max_heart_rate
+            name: Z3
+            type: line
+            color: '#66bb6a'
+            stroke_width: 1
+            show:
+              legend_value: false
+            data_generator: |
+              const z = entity.attributes.zones_karvonen;
+              if (!z) return [];
+              return [[start.getTime(), z[3]], [end.getTime(), z[3]]];
+          - entity: sensor.polar_loop_max_heart_rate
+            name: Z4
+            type: line
+            color: '#ffa726'
+            stroke_width: 1
+            show:
+              legend_value: false
+            data_generator: |
+              const z = entity.attributes.zones_karvonen;
+              if (!z) return [];
+              return [[start.getTime(), z[4]], [end.getTime(), z[4]]];
+          - entity: sensor.polar_loop_max_heart_rate
+            name: Z5
+            type: line
+            color: '#ef5350'
+            stroke_width: 1
+            show:
+              legend_value: false
+            data_generator: |
+              const z = entity.attributes.zones_karvonen;
+              if (!z) return [];
+              return [[start.getTime(), z[5]], [end.getTime(), z[5]]];
