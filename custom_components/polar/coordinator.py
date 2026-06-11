@@ -84,6 +84,13 @@ class PolarProfileCoordinator(DataUpdateCoordinator):
         heart_rate = await self.hass.async_add_executor_job(
             self.accesslink.get_continuous_heart_rate, token
         )
+        try:
+            exercises = await self.hass.async_add_executor_job(
+                self.accesslink.get_exercises, token
+            )
+        except Exception as err:  # noqa: BLE001 - don't fail the whole update
+            _LOGGER.warning("Polar: unable to get exercises: %s", err)
+            exercises = []
         maximum = info.get("maximum_heart_rate")
         resting = info.get("resting_heart_rate")
         percent_max, karvonen = _zone_bounds(maximum, resting)
@@ -96,4 +103,5 @@ class PolarProfileCoordinator(DataUpdateCoordinator):
             "zones_percent_max": percent_max,
             "zones_karvonen": karvonen,
             "heart_rate": heart_rate,
+            "exercises": exercises,
         }

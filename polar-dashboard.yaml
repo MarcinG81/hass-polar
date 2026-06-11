@@ -71,6 +71,12 @@ views:
     path: training
     icon: mdi:run-fast
     cards:
+      - type: calendar
+        title: Workouts
+        initial_view: listWeek
+        entities:
+          - calendar.polar_loop_exercises
+
       - type: statistics-graph
         title: Cardio load – last 28 days
         chart_type: bar
