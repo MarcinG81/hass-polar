@@ -15,10 +15,14 @@ import logging
 from typing import Any
 
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
-from homeassistant.components.recorder.statistics import async_add_external_statistics
+from homeassistant.components.recorder.statistics import (
+    async_add_external_statistics,
+    async_import_statistics,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ACCESS_TOKEN
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 import homeassistant.util.dt as dt_util
 
@@ -69,6 +73,19 @@ def _metadata(suffix: str, name: str, unit: str | None) -> StatisticMetaData:
         name=f"Polar {name}",
         source=DOMAIN,
         statistic_id=f"{DOMAIN}:{suffix}",
+        unit_of_measurement=unit,
+        unit_class=None,
+    )
+
+
+def _entity_metadata(statistic_id: str, unit: str | None) -> StatisticMetaData:
+    """Build statistic metadata targeting an existing sensor entity."""
+    return StatisticMetaData(
+        **_MEAN_META,
+        has_sum=False,
+        name=None,
+        source="recorder",
+        statistic_id=statistic_id,
         unit_of_measurement=unit,
         unit_class=None,
     )
@@ -198,9 +215,7 @@ async def async_import_history(
         if samples:
             samples_by_day.append((iso, samples))
         day += timedelta(days=1)
-    metrics.append(
-        (_metadata("heart_rate", "heart rate", "bpm"), _heart_rate_stats(samples_by_day))
-    )
+    heart_rate_stats = _heart_rate_stats(samples_by_day)
 
     imported_points = 0
     imported_metrics = 0
@@ -209,6 +224,24 @@ async def async_import_history(
             continue
         async_add_external_statistics(hass, metadata, statistics)
         imported_points += len(statistics)
+        imported_metrics += 1
+
+    # Heart rate is imported onto the Heart rate sensor entity (so charts that
+    # only accept real entities, e.g. ApexCharts, can plot it); fall back to an
+    # external polar:heart_rate statistic if the entity isn't registered yet.
+    if heart_rate_stats:
+        hr_entity_id = er.async_get(hass).async_get_entity_id(
+            "sensor", DOMAIN, f"{entry.entry_id}_heart_rate"
+        )
+        if hr_entity_id:
+            async_import_statistics(
+                hass, _entity_metadata(hr_entity_id, "bpm"), heart_rate_stats
+            )
+        else:
+            async_add_external_statistics(
+                hass, _metadata("heart_rate", "heart rate", "bpm"), heart_rate_stats
+            )
+        imported_points += len(heart_rate_stats)
         imported_metrics += 1
 
     await store.async_save({"last_day": today.isoformat()})

@@ -76,9 +76,13 @@ class PolarProfileCoordinator(DataUpdateCoordinator):
         return self._entry.entry_id
 
     async def _async_update_data(self) -> dict:
-        """Fetch physical info and compute zones (tolerant of missing data)."""
+        """Fetch physical info + latest heart rate (tolerant of missing data)."""
+        token = self._entry.data[CONF_ACCESS_TOKEN]
         info = await self.hass.async_add_executor_job(
-            self.accesslink.get_physical_info, self._entry.data[CONF_ACCESS_TOKEN]
+            self.accesslink.get_physical_info, token
+        )
+        heart_rate = await self.hass.async_add_executor_job(
+            self.accesslink.get_continuous_heart_rate, token
         )
         maximum = info.get("maximum_heart_rate")
         resting = info.get("resting_heart_rate")
@@ -91,4 +95,5 @@ class PolarProfileCoordinator(DataUpdateCoordinator):
             "vo2_max": info.get("vo2_max"),
             "zones_percent_max": percent_max,
             "zones_karvonen": karvonen,
+            "heart_rate": heart_rate,
         }

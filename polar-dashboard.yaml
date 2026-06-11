@@ -99,7 +99,7 @@ views:
           - min
           - max
         entities:
-          - entity: polar:heart_rate
+          - entity: sensor.polar_loop_heart_rate
             name: Heart rate
 
       # Heart rate with training zone bands (requires ApexCharts Card).
@@ -117,7 +117,7 @@ views:
           legend:
             show: false
         series:
-          - entity: polar:heart_rate
+          - entity: sensor.polar_loop_heart_rate
             name: HR
             type: line
             color: '#212121'
@@ -192,7 +192,7 @@ views:
           legend:
             show: false
         series:
-          - entity: polar:heart_rate
+          - entity: sensor.polar_loop_heart_rate
             name: HR
             type: line
             color: '#212121'
