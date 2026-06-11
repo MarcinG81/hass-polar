@@ -95,6 +95,24 @@ class AccessLink:
             reverse=True,
         )
 
+    def get_physical_info(self, access_token):
+        """Get the user's physical information (max/resting HR, thresholds...).
+
+        Returns the physical-info dict (``maximum_heart_rate``,
+        ``resting_heart_rate``, ``aerobic_threshold``, ``anaerobic_threshold``,
+        ``vo2_max``, ...) or an empty dict when unavailable.
+        """
+        try:
+            return self.oauth.get(
+                endpoint="/users/physical-info", access_token=access_token
+            )
+        except HTTPError as err:
+            _LOGGER.warning(
+                "Unable to get physical info (HTTP %s)",
+                getattr(err.response, "status_code", None),
+            )
+            return {}
+
     def get_continuous_heart_rate(self, access_token):
         """Get latest continuous heart rate samples.
 

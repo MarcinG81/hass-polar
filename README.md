@@ -42,6 +42,20 @@ data) is logged and skipped, never failing the rest of the sync. It requires the
 > Note: only long-term statistics are produced. Home Assistant does not allow
 > inserting past raw states, so there is no instantaneous "current value" entity.
 
+## Heart rate zones
+
+The integration also exposes a single diagnostic sensor, **`Max heart rate`**,
+fetched from your Polar physical info (`maximum_heart_rate`). Its attributes
+include the resting heart rate, the aerobic/anaerobic thresholds, VO2max and the
+five training-zone boundaries computed two ways:
+
+- `zones_percent_max` — % of maximum heart rate (as Polar Flow shows them);
+- `zones_karvonen` — % of heart rate reserve (Karvonen, uses resting HR).
+
+Because the zone bounds are pulled from the API and exposed as attributes, charts
+can draw zone bands without hard-coding any numbers — it works for any user (see
+the heart rate views in the dashboard).
+
 ## Installation
 
 ### HACS
@@ -77,9 +91,11 @@ with a clear error instead of failing later during the OAuth exchange.
 ## Dashboard
 
 [`polar-dashboard.yaml`](./polar-dashboard.yaml) is a ready-to-use Lovelace
-dashboard with *Sleep*, *Training* and *Heart rate* history views, built with the
-built-in `statistics-graph` card (no extra HACS cards required). Paste it into a
-new dashboard via the raw configuration editor.
+dashboard with *Sleep*, *Training* and *Heart rate* history views. Most cards use
+the built-in `statistics-graph` card; the heart rate "zone" cards additionally
+use the [ApexCharts Card](https://github.com/RomRider/apexcharts-card) (HACS) and
+draw the training-zone bands from the `Max heart rate` sensor attributes. Paste
+it into a new dashboard via the raw configuration editor.
 
 ## Credits
 

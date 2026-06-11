@@ -1,10 +1,14 @@
 """The Polar integration.
 
-History-only design: Polar devices (Loop, watches, ...) sync to Polar Flow in
+History-first design: Polar devices (Loop, watches, ...) sync to Polar Flow in
 batches and the data is essentially daily-granular, so there is no meaningful
-"current" value to poll. Instead of live sensors, this integration imports the
-available Polar history as long-term statistics and keeps it up to date on a
-slow cadence (default every 6 hours).
+"current" value to poll. The integration publishes the available Polar history
+as long-term statistics (see statistics.py) and keeps it up to date on a slow
+cadence (default every 6 hours).
+
+The only live entity is a diagnostic ``Max heart rate`` sensor (from the user's
+physical info), which also exposes the derived training zones so charts can draw
+zone bands.
 """
 
 from __future__ import annotations
@@ -13,15 +17,16 @@ from datetime import timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, CONF_SCAN_INTERVAL
+from homeassistant.const import CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import CONF_USER_ID, DEFAULT_SCAN_INTERVAL, DOMAIN
-from .polaraccesslink.accesslink import AccessLink
+from .coordinator import PolarProfileCoordinator
 from .statistics import async_import_history
 
 _LOGGER = logging.getLogger(__name__)
+PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -34,16 +39,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, unique_id=str(entry.data[CONF_USER_ID])
         )
 
-    accesslink = AccessLink(
-        client_id=entry.data[CONF_CLIENT_ID],
-        client_secret=entry.data[CONF_CLIENT_SECRET],
-    )
-    hass.data[DOMAIN][entry.entry_id] = accesslink
+    coordinator = PolarProfileCoordinator(hass, entry)
+    await coordinator.async_refresh()
+    hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     async def _sync(now=None) -> None:
         """Import any new Polar history (best effort, never fails setup)."""
         try:
-            await async_import_history(hass, accesslink, entry)
+            await async_import_history(hass, coordinator.accesslink, entry)
         except Exception:  # noqa: BLE001 - history sync must never break setup
             _LOGGER.exception("Polar: history sync failed")
 
@@ -54,7 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     )
 
-    # Run once now (in the background) and then on the configured cadence.
+    # Run the history sync once now (in the background) and then on the cadence.
     entry.async_create_background_task(hass, _sync(), "polar_history_sync")
     entry.async_on_unload(async_track_time_interval(hass, _sync, interval))
 
@@ -63,5 +68,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    hass.data[DOMAIN].pop(entry.entry_id, None)
-    return True
+    if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+    return unload_ok
