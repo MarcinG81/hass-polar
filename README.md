@@ -104,17 +104,17 @@ the `recorder` integration (declared as a dependency).
 dashboard for training + sleep tracking:
 
 * **Today** — a live snapshot (heart rate, HRV, breathing, weight, last night's
-  sleep stages and recharge, last workout) built with
-  [Mushroom](https://github.com/piitaya/lovelace-mushroom) cards;
+  sleep stages and recharge, last workout), a sections view built with the
+  native `tile` cards and badges;
 * **Sleep** — 28-day history of sleep stages, sleep score, HRV and breathing;
 * **Training** — 28-day cardio load and 7-day continuous heart rate, plus the
   live heart rate of the day.
 
-It uses the Mushroom cards (HACS) and the built-in `statistics-graph` card. Paste
-it into a new dashboard via the raw configuration editor. The entity ids carry
-your Polar device name as a prefix (e.g. `sensor.polar_loop_deep_sleep`); if
-yours differ, find-replace the prefix in the editor — see the comments at the top
-of the file.
+It uses only built-in cards (sections view, `tile`, `statistics-graph`) — no
+custom HACS cards required. Paste it into a new dashboard via the raw
+configuration editor. The entity ids carry your Polar device name as a prefix
+(e.g. `sensor.polar_loop_deep_sleep`); if yours differ, find-replace the prefix
+in the editor — see the comments at the top of the file.
 
 ## Credits
 
