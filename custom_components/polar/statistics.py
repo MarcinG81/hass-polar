@@ -3,8 +3,9 @@
 Home Assistant sensors only build history forward from the moment they start
 polling and cannot backfill past states. Polar however keeps the last ~28 days
 of nightly/daily data and per-day continuous heart rate samples. This module
-imports that history as external long-term statistics (``polar:*``) so it shows
-up in the statistics graphs / Developer Tools, including data from before the
+imports that history as long-term statistics attached to each sensor's own
+``entity_id`` (via ``async_import_statistics``), so the past shows up directly
+on the entity's History/statistics view, including data from before the
 integration was installed.
 """
 
