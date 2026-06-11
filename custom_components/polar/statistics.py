@@ -1,32 +1,35 @@
-"""Import historical Polar data as Home Assistant long-term statistics.
+"""Import Polar history as long-term statistics.
 
-Home Assistant sensors only build history forward from the moment they start
-polling and cannot backfill past states. Polar however keeps the last ~28 days
-of nightly/daily data and per-day continuous heart rate samples. This module
-imports that history as external long-term statistics (``polar:*``) so it shows
-up in the statistics graphs / Developer Tools, including data from before the
-integration was installed.
+Home Assistant cannot backfill past sensor states, so Polar history is published
+as external long-term statistics (``polar:*``). On the first run the last
+~28 days are imported; afterwards only the missing/recent days are appended, so
+each scheduled sync stays cheap (important for continuous heart rate, which costs
+one API call per day).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 import logging
 from typing import Any
 
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
-from homeassistant.components.recorder.statistics import async_import_statistics
+from homeassistant.components.recorder.statistics import async_add_external_statistics
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ACCESS_TOKEN
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.storage import Store
 import homeassistant.util.dt as dt_util
 
 from .const import DOMAIN
-from .coordinator import PolarCoordinator
+from .polaraccesslink.accesslink import AccessLink
 
 _LOGGER = logging.getLogger(__name__)
+
+# How far back to import on the first run (Polar keeps ~28 days of history).
+HISTORY_DAYS = 28
+STORE_VERSION = 1
 
 # How to declare a "mean" statistic. Newer Home Assistant wants ``mean_type``;
 # fall back to the legacy ``has_mean`` boolean on older cores.
@@ -36,10 +39,6 @@ try:
     _MEAN_META: dict = {"mean_type": StatisticMeanType.ARITHMETIC}
 except ImportError:  # pragma: no cover - older Home Assistant
     _MEAN_META = {"has_mean": True}
-
-# Continuous heart rate is fetched one API call per day, so keep the dense
-# backfill window modest to stay friendly with Polar rate limits.
-CHR_BACKFILL_DAYS = 7
 
 
 def _hour_start(value: datetime) -> datetime:
@@ -52,10 +51,7 @@ def _date_to_hour(date_str: Any, hour: int = 12) -> datetime | None:
     day = dt_util.parse_date(date_str) if isinstance(date_str, str) else None
     if day is None:
         return None
-    local = datetime.combine(
-        day, time(hour=hour), tzinfo=dt_util.DEFAULT_TIME_ZONE
-    )
-    return _hour_start(local)
+    return _hour_start(datetime.combine(day, time(hour=hour), tzinfo=dt_util.DEFAULT_TIME_ZONE))
 
 
 def _seconds_to_minutes(seconds: Any) -> float | None:
@@ -65,30 +61,33 @@ def _seconds_to_minutes(seconds: Any) -> float | None:
     return round(seconds / 60)
 
 
-def _metadata(statistic_id: str, unit: str | None) -> StatisticMetaData:
-    """Build statistic metadata targeting an existing sensor entity."""
+def _metadata(suffix: str, name: str, unit: str | None) -> StatisticMetaData:
+    """Build external statistic metadata for a Polar metric."""
     return StatisticMetaData(
         **_MEAN_META,
         has_sum=False,
-        name=None,
-        source="recorder",
-        statistic_id=statistic_id,
+        name=f"Polar {name}",
+        source=DOMAIN,
+        statistic_id=f"{DOMAIN}:{suffix}",
         unit_of_measurement=unit,
         unit_class=None,
     )
 
 
 def _nightly_stats(
-    records: list[dict], value_fn: Callable[[dict], Any]
+    records: list[dict], value_fn: Callable[[dict], Any], since: date
 ) -> list[StatisticData]:
-    """Build one statistic point per dated record (sleep/recharge/cardio)."""
+    """Build one statistic point per dated record on/after ``since``."""
     by_hour: dict[datetime, float] = {}
     for record in records:
+        day = dt_util.parse_date(record.get("date")) if isinstance(record.get("date"), str) else None
+        if day is None or day < since:
+            continue
         start = _date_to_hour(record.get("date"))
         value = value_fn(record)
         if start is None or value is None:
             continue
-        by_hour[start] = value  # one value per day; last wins
+        by_hour[start] = value
     return [
         StatisticData(start=start, mean=value, min=value, max=value)
         for start, value in sorted(by_hour.items())
@@ -114,9 +113,7 @@ def _heart_rate_stats(
             except ValueError:
                 continue
             start = _hour_start(
-                datetime.combine(
-                    day, time(hour=hour), tzinfo=dt_util.DEFAULT_TIME_ZONE
-                )
+                datetime.combine(day, time(hour=hour), tzinfo=dt_util.DEFAULT_TIME_ZONE)
             )
             buckets.setdefault(start, []).append(heart_rate)
     return [
@@ -131,100 +128,94 @@ def _heart_rate_stats(
 
 
 async def async_import_history(
-    hass: HomeAssistant, coordinator: PolarCoordinator, entry: ConfigEntry
+    hass: HomeAssistant, accesslink: AccessLink, entry: ConfigEntry
 ) -> None:
-    """Fetch the available Polar history and import it into the sensors.
+    """Import the missing Polar history as long-term statistics.
 
-    Statistics are imported against each sensor's own ``entity_id`` (resolved
-    from the entity registry via the sensor's unique_id), so the backfilled
-    history shows up directly on the entity (its statistics graph), including
-    data from before the integration was installed.
+    First run imports the last ~28 days; later runs only append days since the
+    last successful import (the most recent day is always refreshed to pick up
+    late-arriving data from a device sync).
     """
     token = entry.data[CONF_ACCESS_TOKEN]
-    accesslink = coordinator.accesslink
-    ent_reg = er.async_get(hass)
+    store: Store = Store(hass, STORE_VERSION, f"{DOMAIN}_history_{entry.entry_id}")
+    saved = await store.async_load() or {}
 
-    def _entity_id(unique_suffix: str) -> str | None:
-        """Resolve a sensor entity_id from its unique_id suffix."""
-        return ent_reg.async_get_entity_id(
-            "sensor", DOMAIN, f"{entry.entry_id}_{unique_suffix}"
-        )
+    today = dt_util.now().date()
+    earliest = today - timedelta(days=HISTORY_DAYS)
+    last_day = (
+        date.fromisoformat(saved["last_day"])
+        if isinstance(saved.get("last_day"), str)
+        else None
+    )
+    # Start from the last imported day (re-fetched to catch updates), but never
+    # earlier than what Polar keeps (~28 days).
+    since = max(last_day or earliest, earliest)
 
-    # Nightly/daily metrics each come from a single "last 28 days" list call.
+    # Nightly/daily metrics: one "last 28 days" list call each, filtered.
     sleep = await hass.async_add_executor_job(accesslink.get_sleep, token)
     recharge = await hass.async_add_executor_job(accesslink.get_recharge, token)
     cardio = await hass.async_add_executor_job(accesslink.get_cardio_load, token)
 
-    # (sensor unique_id suffix, native unit, statistics) - units MUST match the
-    # sensor's native_unit_of_measurement or Home Assistant rejects the import.
-    plans: list[tuple[str, str | None, list[StatisticData]]] = [
+    metrics: list[tuple[StatisticMetaData, list[StatisticData]]] = [
         (
-            "deep_sleep",
-            "min",
-            _nightly_stats(sleep, lambda r: _seconds_to_minutes(r.get("deep_sleep"))),
+            _metadata("deep_sleep", "deep sleep", "min"),
+            _nightly_stats(sleep, lambda r: _seconds_to_minutes(r.get("deep_sleep")), since),
         ),
         (
-            "light_sleep",
-            "min",
-            _nightly_stats(sleep, lambda r: _seconds_to_minutes(r.get("light_sleep"))),
+            _metadata("light_sleep", "light sleep", "min"),
+            _nightly_stats(sleep, lambda r: _seconds_to_minutes(r.get("light_sleep")), since),
         ),
         (
-            "rem_sleep",
-            "min",
-            _nightly_stats(sleep, lambda r: _seconds_to_minutes(r.get("rem_sleep"))),
+            _metadata("rem_sleep", "REM sleep", "min"),
+            _nightly_stats(sleep, lambda r: _seconds_to_minutes(r.get("rem_sleep")), since),
         ),
         (
-            "last_sleep",
-            "score",
-            _nightly_stats(sleep, lambda r: r.get("sleep_score")),
+            _metadata("sleep_score", "sleep score", "score"),
+            _nightly_stats(sleep, lambda r: r.get("sleep_score"), since),
         ),
         (
-            "heart_rate_variability",
-            "ms",
-            _nightly_stats(recharge, lambda r: r.get("heart_rate_variability_avg")),
+            _metadata("heart_rate_variability", "heart rate variability", "ms"),
+            _nightly_stats(recharge, lambda r: r.get("heart_rate_variability_avg"), since),
         ),
         (
-            "breathing_rate",
-            "bpm",
-            _nightly_stats(recharge, lambda r: r.get("breathing_rate_avg")),
+            _metadata("breathing_rate", "breathing rate", "bpm"),
+            _nightly_stats(recharge, lambda r: r.get("breathing_rate_avg"), since),
         ),
         (
-            "cardio_load",
-            None,
-            _nightly_stats(cardio, lambda r: r.get("cardio_load")),
+            _metadata("cardio_load", "cardio load", None),
+            _nightly_stats(cardio, lambda r: r.get("cardio_load"), since),
         ),
     ]
 
-    # Dense continuous heart rate: one call per day for the recent window.
-    today = dt_util.now().date()
+    # Continuous heart rate: one call per day, only for the days we still need.
     samples_by_day: list[tuple[str, list[dict]]] = []
-    for offset in range(1, CHR_BACKFILL_DAYS + 1):
-        day = (today - timedelta(days=offset)).isoformat()
+    day = since
+    while day <= today:
+        iso = day.isoformat()
         samples = await hass.async_add_executor_job(
-            accesslink.get_continuous_heart_rate_samples, token, day
+            accesslink.get_continuous_heart_rate_samples, token, iso
         )
         if samples:
-            samples_by_day.append((day, samples))
-    plans.append(("continuous_heart_rate", "bpm", _heart_rate_stats(samples_by_day)))
+            samples_by_day.append((iso, samples))
+        day += timedelta(days=1)
+    metrics.append(
+        (_metadata("heart_rate", "heart rate", "bpm"), _heart_rate_stats(samples_by_day))
+    )
 
     imported_points = 0
     imported_metrics = 0
-    for unique_suffix, unit, statistics in plans:
+    for metadata, statistics in metrics:
         if not statistics:
             continue
-        entity_id = _entity_id(unique_suffix)
-        if entity_id is None:
-            _LOGGER.debug(
-                "Polar: sensor for '%s' not registered yet, skipping its backfill",
-                unique_suffix,
-            )
-            continue
-        async_import_statistics(hass, _metadata(entity_id, unit), statistics)
+        async_add_external_statistics(hass, metadata, statistics)
         imported_points += len(statistics)
         imported_metrics += 1
 
+    await store.async_save({"last_day": today.isoformat()})
+
     _LOGGER.info(
-        "Polar: imported %s historical statistics points across %s sensors",
+        "Polar: synced %s statistics points across %s metrics (since %s)",
         imported_points,
         imported_metrics,
+        since.isoformat(),
     )
