@@ -3,9 +3,9 @@
 DOMAIN = "polar"
 
 CONF_USER_ID = "user_id"
-# Polar devices sync in batches and the data is daily-granular, so there is no
-# point polling often. This is the history sync cadence, in minutes (6 hours).
-DEFAULT_SCAN_INTERVAL = 360
+# History sync cadence, in minutes. Hourly so individual workouts are picked up
+# reasonably soon (exercises are event-like and can happen any time).
+DEFAULT_SCAN_INTERVAL = 60
 
 ATTR_EXERCISE_DATA = "exercisedata"
 ATTR_SLEEP_DATA = "sleepdata"

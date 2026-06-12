@@ -95,6 +95,42 @@ class AccessLink:
             reverse=True,
         )
 
+    def get_exercise_samples(self, access_token, exercise_id):
+        """Get the high-resolution heart rate samples of one exercise.
+
+        Returns ``(recording_rate_seconds, [hr values])`` (values may contain
+        ``None`` where the sensor was offline), or ``(None, [])`` when no heart
+        rate samples are available.
+        """
+        try:
+            data = self.oauth.get(
+                endpoint=f"/exercises/{exercise_id}?samples=true",
+                access_token=access_token,
+            )
+        except HTTPError as err:
+            _LOGGER.warning(
+                "Unable to get exercise %s samples (HTTP %s)",
+                exercise_id,
+                getattr(err.response, "status_code", None),
+            )
+            return None, []
+
+        for sample in data.get("samples") or []:
+            sample_type = str(
+                sample.get("sample-type", sample.get("sample_type", ""))
+            )
+            if sample_type != "0":  # 0 = heart rate
+                continue
+            rate = sample.get("recording-rate", sample.get("recording_rate"))
+            values: list[int | None] = []
+            for part in str(sample.get("data") or "").split(","):
+                part = part.strip()
+                values.append(
+                    int(part) if part and part.lower() not in ("null", "none") else None
+                )
+            return rate, values
+        return None, []
+
     def get_physical_info(self, access_token):
         """Get the user's physical information (max/resting HR, thresholds...).
 

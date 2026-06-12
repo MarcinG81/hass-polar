@@ -30,6 +30,19 @@ _LOGGER = logging.getLogger(__name__)
 # Polar's 5 heart rate zones as fractions of the upper bound (50-60-70-80-90-100%).
 ZONE_FRACTIONS = (0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
 
+# How many recent workouts to fetch high-resolution HR samples for, and the
+# rough number of points to keep per workout after downsampling.
+EXERCISE_SAMPLE_COUNT = 5
+EXERCISE_SAMPLE_POINTS = 120
+
+
+def _downsample(values: list, target: int = EXERCISE_SAMPLE_POINTS) -> tuple[list, int]:
+    """Reduce a list to roughly ``target`` points; return (values, step)."""
+    if len(values) <= target:
+        return values, 1
+    step = len(values) // target + 1
+    return values[::step], step
+
 
 def _zone_bounds(maximum: int | None, resting: int | None) -> tuple[list[int] | None, list[int] | None]:
     """Return (percent-of-max bounds, Karvonen/HRR bounds) as 6 values each."""
@@ -91,6 +104,24 @@ class PolarProfileCoordinator(DataUpdateCoordinator):
         except Exception as err:  # noqa: BLE001 - don't fail the whole update
             _LOGGER.warning("Polar: unable to get exercises: %s", err)
             exercises = []
+
+        # Fetch high-resolution HR samples for the most recent workouts.
+        for exercise in exercises[:EXERCISE_SAMPLE_COUNT]:
+            exercise_id = exercise.get("id")
+            if exercise_id is None:
+                continue
+            try:
+                rate, values = await self.hass.async_add_executor_job(
+                    self.accesslink.get_exercise_samples, token, exercise_id
+                )
+            except Exception as err:  # noqa: BLE001 - per-exercise, keep going
+                _LOGGER.warning("Polar: unable to get exercise samples: %s", err)
+                continue
+            if values:
+                samples, step = _downsample(values)
+                exercise["hr_samples"] = samples
+                exercise["hr_sample_rate"] = (rate or 1) * step
+
         try:
             sleep = await self.hass.async_add_executor_job(
                 self.accesslink.get_sleep, token
