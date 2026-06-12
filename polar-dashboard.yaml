@@ -25,6 +25,12 @@ views:
     path: sleep
     icon: mdi:sleep
     cards:
+      - type: calendar
+        title: Sleep nights
+        initial_view: listWeek
+        entities:
+          - calendar.polar_loop_sleep
+
       - type: statistics-graph
         title: Sleep stages – last 28 days (minutes)
         chart_type: bar

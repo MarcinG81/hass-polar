@@ -56,14 +56,19 @@ Because the zone bounds are pulled from the API and exposed as attributes, chart
 can draw zone bands without hard-coding any numbers — it works for any user (see
 the heart rate views in the dashboard).
 
-## Workouts (calendar)
+## Calendars (workouts & sleep)
 
-Training sessions are exposed as a **calendar** (`calendar.<device>_exercises`):
-each workout is a calendar event with the session details (sport, distance,
-duration, average/maximum heart rate, training load, calories) in the event
-description. This keeps every workout — including several on the same day — with
-its full attributes and recent history, unlike a single "last exercise" value.
-Add it with the built-in **Calendar** card.
+Two **calendars** expose the event-like, attribute-rich records:
+
+- `calendar.<device>_exercises` — one event per training session (sport,
+  distance, duration, average/maximum heart rate, training load, calories);
+- `calendar.<device>_sleep` — one event per night (sleep score, deep/light/REM
+  durations, cycles, continuity, time awake), spanning the actual sleep period.
+
+Each record keeps its full details in the event description, so several workouts
+on the same day — or each night — are all preserved with their attributes and
+recent history, unlike a single "last exercise" / "last sleep" value. Add them
+with the built-in **Calendar** card.
 
 ## Installation
 
