@@ -83,6 +83,15 @@ views:
         entities:
           - calendar.polar_loop_exercises
 
+      - type: markdown
+        title: Recent workouts
+        content: |
+          {% set rows = state_attr('sensor.polar_loop_last_exercise', 'exercises') or [] %}
+          | Date | Sport | Duration | Distance | Cal | Load | HR max |
+          |---|---|---|---|---|---|---|
+          {% for e in rows %}| {{ e.date }} | {{ e.sport }} | {{ e.duration }} | {{ (e.distance_km ~ ' km') if e.distance_km else '—' }} | {{ e.calories or '—' }} | {{ e.training_load or '—' }} | {{ e.heart_rate_maximum or '—' }} |
+          {% endfor %}
+
       - type: statistics-graph
         title: Cardio load – last 28 days
         chart_type: bar
