@@ -54,7 +54,12 @@ def _event(exercise: dict) -> CalendarEvent | None:
     if end <= start:
         end = start + timedelta(minutes=1)
 
-    sport = (exercise.get("sport") or "Workout").replace("_", " ").title()
+    sport = (
+        exercise.get("detailed_sport_info")
+        or exercise.get("detailed-sport-info")
+        or exercise.get("sport")
+        or "Workout"
+    ).replace("_", " ").title()
 
     details: list[str] = []
     if (distance := exercise.get("distance")) is not None:

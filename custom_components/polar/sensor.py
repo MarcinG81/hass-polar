@@ -75,7 +75,14 @@ def _exercise_rows(exercises: list[dict]) -> list[dict]:
             {
                 "date": (exercise.get("start_time") or "")[:10],
                 "start_time": exercise.get("start_time"),
-                "sport": (exercise.get("sport") or "Workout").replace("_", " ").title(),
+                "sport": (
+                    exercise.get("detailed_sport_info")
+                    or exercise.get("detailed-sport-info")
+                    or exercise.get("sport")
+                    or "Workout"
+                )
+                .replace("_", " ")
+                .title(),
                 "duration": exercise.get("duration"),
                 "distance_km": round(distance / 1000, 2) if distance else None,
                 "calories": exercise.get("calories"),
