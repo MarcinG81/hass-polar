@@ -33,6 +33,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # How far back to import on the first run (Polar keeps ~28 days of history).
 HISTORY_DAYS = 28
+# Always re-fetch at least this many recent days of continuous heart rate, since
+# Polar delivers it into AccessLink with a lag (a day keeps filling up later).
+HR_REFETCH_DAYS = 3
 STORE_VERSION = 1
 
 # How to declare a "mean" statistic. Newer Home Assistant wants ``mean_type``;
@@ -204,9 +207,12 @@ async def async_import_history(
         ),
     ]
 
-    # Continuous heart rate: one call per day, only for the days we still need.
+    # Continuous heart rate: one call per day. Always re-fetch the last few days
+    # (not just from last_day): Polar fills continuous HR into AccessLink with a
+    # lag, so a day we already imported keeps getting more samples afterwards.
+    # The import upserts, so re-fetching is safe.
     samples_by_day: list[tuple[str, list[dict]]] = []
-    day = since
+    day = max(earliest, min(since, today - timedelta(days=HR_REFETCH_DAYS)))
     while day <= today:
         iso = day.isoformat()
         samples = await hass.async_add_executor_job(
