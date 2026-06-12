@@ -70,6 +70,11 @@ on the same day — or each night — are all preserved with their attributes an
 recent history, unlike a single "last exercise" / "last sleep" value. Add them
 with the built-in **Calendar** card.
 
+There is also a `Last exercise` sensor whose state is the start time of the most
+recent workout and whose `exercises` attribute is the recent list (date, sport,
+duration, distance, calories, training load, avg/max heart rate) — handy for
+rendering a workouts table with a Markdown card (see the dashboard).
+
 ## Installation
 
 ### HACS
