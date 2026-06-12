@@ -71,6 +71,7 @@ def _exercise_rows(exercises: list[dict]) -> list[dict]:
     rows: list[dict] = []
     for exercise in exercises:
         distance = exercise.get("distance")
+        load_pro = exercise.get("training_load_pro") or {}
         rows.append(
             {
                 "date": (exercise.get("start_time") or "")[:10],
@@ -87,6 +88,8 @@ def _exercise_rows(exercises: list[dict]) -> list[dict]:
                 "distance_km": round(distance / 1000, 2) if distance else None,
                 "calories": exercise.get("calories"),
                 "training_load": exercise.get("training_load"),
+                "cardio_load": load_pro.get("cardio-load", load_pro.get("cardio_load")),
+                "muscle_load": load_pro.get("muscle-load", load_pro.get("muscle_load")),
                 "heart_rate_average": exercise.get("heart_rate_average"),
                 "heart_rate_maximum": exercise.get("heart_rate_maximum"),
                 "hr_samples": exercise.get("hr_samples"),

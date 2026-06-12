@@ -87,9 +87,9 @@ views:
         title: Recent workouts
         content: |
           {% set rows = state_attr('sensor.polar_loop_last_exercise', 'exercises') or [] %}
-          | Date | Sport | Duration | Distance | Cal | Load | HR max |
-          |---|---|---|---|---|---|---|
-          {% for e in rows %}| {{ (e.start_time[:16] | replace('T', ' ')) if e.start_time else e.date }} | {{ e.sport }} | {{ e.duration.split('.')[0].rsplit(':', 1)[0] if e.duration else '—' }} | {{ (e.distance_km ~ ' km') if e.distance_km else '—' }} | {{ e.calories or '—' }} | {{ e.training_load or '—' }} | {{ e.heart_rate_maximum or '—' }} |
+          | Date | Sport | Duration | Distance | Cal | Load | Muscle | HR max |
+          |---|---|---|---|---|---|---|---|
+          {% for e in rows %}| {{ (e.start_time[:16] | replace('T', ' ')) if e.start_time else e.date }} | {{ e.sport }} | {{ e.duration.split('.')[0].rsplit(':', 1)[0] if e.duration else '—' }} | {{ (e.distance_km ~ ' km') if e.distance_km else '—' }} | {{ e.calories or '—' }} | {{ e.training_load or e.cardio_load or '—' }} | {{ e.muscle_load or '—' }} | {{ e.heart_rate_maximum or '—' }} |
           {% endfor %}
 
       - type: statistics-graph
