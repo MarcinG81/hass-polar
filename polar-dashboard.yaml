@@ -89,7 +89,7 @@ views:
           {% set rows = state_attr('sensor.polar_loop_last_exercise', 'exercises') or [] %}
           | Date | Sport | Duration | Distance | Cal | Load | HR max |
           |---|---|---|---|---|---|---|
-          {% for e in rows %}| {{ e.date }} | {{ e.sport }} | {{ e.duration }} | {{ (e.distance_km ~ ' km') if e.distance_km else '—' }} | {{ e.calories or '—' }} | {{ e.training_load or '—' }} | {{ e.heart_rate_maximum or '—' }} |
+          {% for e in rows %}| {{ (e.start_time[:16] | replace('T', ' ')) if e.start_time else e.date }} | {{ e.sport }} | {{ e.duration.split('.')[0].rsplit(':', 1)[0] if e.duration else '—' }} | {{ (e.distance_km ~ ' km') if e.distance_km else '—' }} | {{ e.calories or '—' }} | {{ e.training_load or '—' }} | {{ e.heart_rate_maximum or '—' }} |
           {% endfor %}
 
       - type: statistics-graph
@@ -131,7 +131,7 @@ views:
         header:
           show: true
           title: Heart rate – % HRmax zones (48h)
-        graph_span: 48h
+        graph_span: 7d
         apex_config:
           chart:
             height: 320
@@ -206,7 +206,7 @@ views:
         header:
           show: true
           title: Heart rate – Karvonen (%HRR) zones (48h)
-        graph_span: 48h
+        graph_span: 7d
         apex_config:
           chart:
             height: 320
