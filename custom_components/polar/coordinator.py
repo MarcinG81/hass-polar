@@ -94,9 +94,6 @@ class PolarProfileCoordinator(DataUpdateCoordinator):
         info = await self.hass.async_add_executor_job(
             self.accesslink.get_physical_info, token
         )
-        heart_rate = await self.hass.async_add_executor_job(
-            self.accesslink.get_continuous_heart_rate, token
-        )
         try:
             exercises = await self.hass.async_add_executor_job(
                 self.accesslink.get_exercises, token
@@ -140,7 +137,6 @@ class PolarProfileCoordinator(DataUpdateCoordinator):
             "vo2_max": info.get("vo2_max"),
             "zones_percent_max": percent_max,
             "zones_karvonen": karvonen,
-            "heart_rate": heart_rate,
             "exercises": exercises,
             "sleep": sleep,
         }
