@@ -82,6 +82,8 @@ def _exercise_rows(exercises: list[dict]) -> list[dict]:
                 "training_load": exercise.get("training_load"),
                 "heart_rate_average": exercise.get("heart_rate_average"),
                 "heart_rate_maximum": exercise.get("heart_rate_maximum"),
+                "hr_samples": exercise.get("hr_samples"),
+                "hr_sample_rate": exercise.get("hr_sample_rate"),
             }
         )
     return rows

@@ -73,7 +73,10 @@ with the built-in **Calendar** card.
 There is also a `Last exercise` sensor whose state is the start time of the most
 recent workout and whose `exercises` attribute is the recent list (date, sport,
 duration, distance, calories, training load, avg/max heart rate) — handy for
-rendering a workouts table with a Markdown card (see the dashboard).
+rendering a workouts table with a Markdown card (see the dashboard). For the few
+most recent workouts the list also carries the **high-resolution heart rate
+samples** (`hr_samples` + `hr_sample_rate`), so you can draw the per-workout HR
+curve (the dashboard does this with ApexCharts).
 
 ## Installation
 
