@@ -46,7 +46,6 @@ async def async_setup_entry(
     async_add_entities(
         [
             PolarMaxHeartRateSensor(coordinator),
-            PolarHeartRateSensor(coordinator),
             PolarLastExerciseSensor(coordinator),
         ]
     )
@@ -147,61 +146,6 @@ class PolarMaxHeartRateSensor(CoordinatorEntity[PolarProfileCoordinator], Sensor
             # Human-readable ranges.
             "zone_ranges_percent_max": _zone_ranges(data.get("zones_percent_max")),
             "zone_ranges_karvonen": _zone_ranges(data.get("zones_karvonen")),
-        }
-
-
-class PolarHeartRateSensor(CoordinatorEntity[PolarProfileCoordinator], SensorEntity):
-    """Latest continuous heart rate.
-
-    This entity exists mainly to carry the heart rate long-term statistics
-    (the history is imported onto it), so charts that only accept real entities
-    — e.g. ApexCharts — can plot it. Its state is the latest known 5-minute
-    sample, refreshed on the slow sync cadence.
-    """
-
-    _attr_attribution = ATTRIBUTION
-    _attr_has_entity_name = True
-    _attr_name = "Heart rate"
-    _attr_native_unit_of_measurement = "bpm"
-    # No state_class on purpose: the long-term statistics for this entity are
-    # imported from Polar's 5-minute samples (see statistics.py). With
-    # state_class the recorder would ALSO compile statistics from the polled
-    # state and collide with the imported rows (UNIQUE constraint -> broken
-    # statistics compilation), so we let the import be the only source.
-    _attr_icon = "mdi:heart-pulse"
-
-    def __init__(self, coordinator: PolarProfileCoordinator) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.entry_id}_heart_rate"
-        self._attr_device_info = DeviceInfo(
-            configuration_url="https://flow.polar.com/",
-            entry_type=DeviceEntryType.SERVICE,
-            identifiers={(DOMAIN, coordinator.entry_id)},
-            manufacturer="Polar",
-            name=coordinator.user_name,
-        )
-
-    @property
-    def available(self) -> bool:
-        """Return True if a recent heart rate value is known."""
-        return super().available and bool(self.coordinator.data.get("heart_rate"))
-
-    @property
-    def native_value(self) -> int | None:
-        """Return the latest heart rate sample."""
-        return (self.coordinator.data.get("heart_rate") or {}).get("latest")
-
-    @property
-    def extra_state_attributes(self) -> Mapping[str, Any]:
-        """Return min/max/average of the most recent day."""
-        heart_rate = self.coordinator.data.get("heart_rate") or {}
-        return {
-            "min": heart_rate.get("min"),
-            "max": heart_rate.get("max"),
-            "average": heart_rate.get("average"),
-            "samples_count": heart_rate.get("samples_count"),
-            "date": heart_rate.get("date"),
         }
 
 
