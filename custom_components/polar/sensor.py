@@ -163,7 +163,11 @@ class PolarHeartRateSensor(CoordinatorEntity[PolarProfileCoordinator], SensorEnt
     _attr_has_entity_name = True
     _attr_name = "Heart rate"
     _attr_native_unit_of_measurement = "bpm"
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    # No state_class on purpose: the long-term statistics for this entity are
+    # imported from Polar's 5-minute samples (see statistics.py). With
+    # state_class the recorder would ALSO compile statistics from the polled
+    # state and collide with the imported rows (UNIQUE constraint -> broken
+    # statistics compilation), so we let the import be the only source.
     _attr_icon = "mdi:heart-pulse"
 
     def __init__(self, coordinator: PolarProfileCoordinator) -> None:
