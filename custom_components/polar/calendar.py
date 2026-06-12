@@ -69,8 +69,15 @@ def _event(exercise: dict) -> CalendarEvent | None:
         details.append(f"HR avg: {avg} bpm")
     if (maximum := exercise.get("heart_rate_maximum")) is not None:
         details.append(f"HR max: {maximum} bpm")
-    if (load := exercise.get("training_load")) is not None:
-        details.append(f"Training load: {load}")
+    load_pro = exercise.get("training_load_pro") or {}
+    cardio_load = exercise.get("training_load") or load_pro.get(
+        "cardio-load", load_pro.get("cardio_load")
+    )
+    if cardio_load is not None:
+        details.append(f"Cardio load: {cardio_load}")
+    muscle_load = load_pro.get("muscle-load", load_pro.get("muscle_load"))
+    if muscle_load is not None:
+        details.append(f"Muscle load: {muscle_load}")
     if (calories := exercise.get("calories")) is not None:
         details.append(f"Calories: {calories} kcal")
     if (device := exercise.get("device")) is not None:
